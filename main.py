@@ -133,9 +133,9 @@ class Quaternion:
         and finally by y around y axis
         """
         
-        q_x = cls.from_axis_angle(Vector3.LEFT, x / 2)
-        q_y = cls.from_axis_angle(Vector3.UP, y / 2)
-        q_z = cls.from_axis_angle(Vector3.FORWARD, z / 2)
+        q_x = cls.from_axis_angle(Vector3.LEFT, x)
+        q_y = cls.from_axis_angle(Vector3.UP, y)
+        q_z = cls.from_axis_angle(Vector3.FORWARD, z)
         
         return q_y * q_x * q_z
         
@@ -166,7 +166,7 @@ Quaternion.IDENTITY = Quaternion(1, ZERO_VECTOR)
     
     
 class Object_3D:
-    def __init__(self, position: Vector3, rotation: Quaternion=None, scaling: Vector3=None):
+    def __init__(self, position: Vector3, rotation: Quaternion, scaling: Vector3):
         self.position = position
         self.rotation = rotation
         self.scaling = scaling
@@ -176,7 +176,7 @@ class Light(Object_3D):
 
 
 class Shape(Object_3D):
-    def __init__(self, vertices: list[tuple[int, int, int]], triangles: list[tuple[int, int, int]], position: Vector3, rotation: Quaternion=None, scaling: Vector3=None):
+    def __init__(self, vertices: list[tuple[int, int, int]], triangles: list[tuple[int, int, int]], position: Vector3, rotation: Quaternion, scaling: Vector3):
         """
         Creates a new shape. 
 
@@ -205,7 +205,7 @@ class Shape(Object_3D):
     def rotate(self):
         new_vertices = []
         for vertex in self.vertices:
-            new_vertex = Vector3(*vertex).rotate_about_axis(Vector3.UP, 0.4).as_tuple()
+            new_vertex = Vector3(*vertex).rotate_about_axis(Vector3.UP, 0.1).as_tuple()
             new_vertices.append(new_vertex)
         
         self.vertices = new_vertices
@@ -225,12 +225,14 @@ class Tetrahedron(Shape):
         
             
 class Camera(Object_3D):
-    def __init__(self, width: int, height: int, environment: "Environment", zoom: float, position: Vector3, rotation: Quaternion=None, scaling: Vector3=None):
+    def __init__(self, width: int, height: int, environment: "Environment", zoom: float, perspective: bool, depth: float, position: Vector3, rotation: Quaternion, scaling: Vector3):
         super().__init__(position, rotation, scaling)
         self.width = width
         self.height = height
         self.environment = environment
         self.zoom = zoom
+        self.perspective = perspective
+        self.depth = depth
         self.clear_screen()
 
     def _is_in_bounds(self, point: tuple[int, int]):
@@ -264,7 +266,7 @@ class Camera(Object_3D):
     def clear_screen(self):
         self.screen = [[" " for _ in range(self.width)] for _ in range(self.height)]
 
-    def world_to_screen_space(self, point: tuple[int, int, int], viewing_normal: Vector3):
+    def world_to_screen_space(self, point: tuple[int, int, int], viewing_normal: Vector3, perspective=False, depth=None):
         p_vec = Vector3(*point)
         a_vec = self.position
         b_vec = viewing_normal
@@ -275,7 +277,11 @@ class Camera(Object_3D):
         
         p_minus_a = p_vec - a_vec
         
-        d_vec = p_minus_a - (p_minus_a.dot_product(b_vec) / b_vec.square_magnitude()) * b_vec
+        if perspective:
+            b_mag = b_vec.magnitude()
+            d_vec = -depth * b_vec / b_mag + (b_mag * depth / p_minus_a.dot_product(b_vec)) * p_minus_a
+        else:
+            d_vec = p_minus_a - (p_minus_a.dot_product(b_vec) / b_vec.square_magnitude()) * b_vec
         
         x_cross_y = x_vec.cross_product(y_vec)
 
@@ -291,7 +297,7 @@ class Camera(Object_3D):
         
         return (self.width // 2 + int(self.zoom*u), self.height // 2 - int(self.zoom*v))
     
-    def render(self, perspective=False):
+    def render(self):
         self.clear_screen()
 
         # TODO logic to calculate viewing normal
@@ -303,29 +309,36 @@ class Camera(Object_3D):
             for triangle, normal in zip(shape.triangles, shape.normals):
                 cos_normal_viewing = -normal.dot_product(vec_normal) / vec_normal.magnitude()
                 
-                # If face is facing away
-                if cos_normal_viewing <= 0:
-                    continue
+                
+                if self.perspective:
+                    point = Vector3(*shape.vertices[triangle[0]]) \
+                                .hadamard_product(shape.scaling) \
+                                .rotate_by_quaternion(shape.rotation) \
+                                + shape.position
+                    if (point - self.position).dot_product(normal) >= 0:
+                        continue
+                else:
+                    # If face is facing away
+                    if cos_normal_viewing <= 0:
+                        continue
 
                 # Get actual triangle instead of the conventional representation
                 actual_triangle = _triangle_index_to_triangle(triangle, shape.vertices)
                 
-                if perspective:
-                    break
-                    # TODO: add logic for perspective later
-                else: # Orthographic projection
-                    screen_triangle = tuple(
-                        self.world_to_screen_space(
-                            (
-                                Vector3(*vertex)
-                                    .hadamard_product(shape.scaling)
-                                    .rotate_by_quaternion(shape.rotation)
-                                + shape.position
-                            ).as_tuple(),
-                            vec_normal
-                        ) 
-                        for vertex in actual_triangle
-                    )
+                screen_triangle = tuple(
+                    self.world_to_screen_space(
+                        point=(
+                            Vector3(*vertex)
+                                .hadamard_product(shape.scaling)
+                                .rotate_by_quaternion(shape.rotation)
+                            + shape.position
+                        ).as_tuple(),
+                        viewing_normal=vec_normal,
+                        perspective=self.perspective,
+                        depth=self.depth
+                    ) 
+                    for vertex in actual_triangle
+                )
 
                 self._render_triangle(intensities[int(cos_normal_viewing * 5.9)], screen_triangle)                 
                 
@@ -343,12 +356,14 @@ class Environment:
     def __init__(self, shapes: list[Shape], lights: list[Light]):
         self.shapes = shapes
         self.main_camera = Camera(
-            width=70, 
+            width=70,
             height=100, 
             environment=self, 
-            zoom=2, 
-            position=Vector3(0, 0, 10),
-            rotation=Quaternion.from_euler(math.pi / 8, math.pi, 0),
+            zoom=0.4, 
+            perspective=True,
+            depth=100,
+            position=Vector3(0, 0, 20),
+            rotation=Quaternion.from_euler(0, math.pi, 0),
             scaling=UNIT_SCALING
         )
         self.lights = lights
@@ -363,7 +378,7 @@ class Environment:
 
 if __name__ == "__main__":
     s = Cube(
-        position=Vector3(5., 5., 5.),
+        position=Vector3(0, 0, 0),
         rotation=Quaternion.IDENTITY,
         scaling=UNIT_SCALING * 5
     )
@@ -392,5 +407,5 @@ if __name__ == "__main__":
 
             file.write(output_str)
             
-        sleep(0.5)
+        sleep(0.1)
         
