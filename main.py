@@ -211,6 +211,28 @@ class Shape(Object_3D):
         self.vertices = new_vertices
         self.calculate_normals()
         
+    @classmethod
+    def from_obj(cls, filename: str, position: Vector3, rotation: Quaternion, scaling: Vector3):
+        vertices = []
+        triangles = []
+        
+        with open(filename, 'r') as file:
+            lines = file.readlines()
+            
+            for line in lines:
+                line = line.strip()
+                tokens = line.split(" ")
+                if len(tokens) == 0:
+                    continue
+
+                if tokens[0] == 'v':
+                    vertices.append((float(tokens[1]), float(tokens[2]), float(tokens[3])))
+                elif tokens[0] == 'f':
+                    first, second, third = [int(tok.split("/")[0]) for tok in tokens[1:]]
+                    triangles.append((first - 1, second - 1, third - 1))
+        
+        return cls(vertices, triangles, position, rotation, scaling)
+        
 class Cube(Shape):
     def __init__(self, position: Vector3, rotation: Quaternion, scaling: Vector3):
         vertices = [(-1, -1, -1), (-1, -1, 1), (-1, 1, -1), (-1, 1, 1), (1, -1, -1), (1, -1, 1), (1, 1, -1), (1, 1, 1)]
@@ -219,9 +241,11 @@ class Cube(Shape):
         
 class Tetrahedron(Shape):
     def __init__(self, position: Vector3, rotation: Quaternion, scaling: Vector3):
-        vertices = []
-        triangles = [(1, 2, 3), (1, 3, 4), (1, 4, 2), (2, 4, 3)]
+        vertices = [(0, 1, 0), (1, -1/3, 0), (-1/2, -1/3, -math.sqrt(3)/2), (-1/2, -1/3, math.sqrt(3)/2)]
+        triangles = [(0, 1, 2), (0, 2, 3), (0, 3, 1), (1, 3, 2)]
         super().__init__(vertices, triangles, position, rotation, scaling)
+    
+
         
             
 class Camera(Object_3D):
@@ -357,13 +381,13 @@ class Environment:
         self.shapes = shapes
         self.main_camera = Camera(
             width=70,
-            height=100, 
+            height=50, 
             environment=self, 
-            zoom=0.4, 
+            zoom=0.4,
             perspective=True,
             depth=100,
-            position=Vector3(0, 0, 20),
-            rotation=Quaternion.from_euler(0, math.pi, 0),
+            position=Vector3(0, 10, 30),
+            rotation=Quaternion.from_euler(math.pi / 8, math.pi, 0),
             scaling=UNIT_SCALING
         )
         self.lights = lights
@@ -372,10 +396,6 @@ class Environment:
         return self.main_camera.render()
 
     
-                
-                
-                
-
 if __name__ == "__main__":
     s = Cube(
         position=Vector3(0, 0, 0),
@@ -384,19 +404,33 @@ if __name__ == "__main__":
     )
 
     s_2 = Cube(
-        position=Vector3(5., -5., -5.),
+        position=Vector3(5, -5, -5),
         rotation=Quaternion.IDENTITY,
         scaling=Vector3(1, 0.5, 1) * 5
     )
     
+    s_3 = Tetrahedron(
+        position=Vector3(5, 5, 5),
+        rotation=Quaternion.IDENTITY,
+        scaling=UNIT_SCALING * 5
+    )
     
-    e = Environment([s, s_2], [])
+    s_4 = Shape.from_obj(
+        filename="sphere.obj", 
+        position=Vector3(5, 10, 0),
+        rotation=Quaternion.IDENTITY,
+        scaling=UNIT_SCALING * 3
+    )
+    
+    
+    e = Environment([s_2, s, s_3, s_4], [])
 
     time = 0 
     while True:
         output = e.render()
         time += 1
         s.rotate()
+        s_4.rotate()
 
         with open("output.txt", 'w') as file:
             output_str = ""
