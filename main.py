@@ -1,10 +1,15 @@
+#!/usr/bin/env python3
+from __future__ import annotations
 import math
 from os import system
 from time import sleep
 
-intensities = ['.', ',', "o", "0", "#", "@"]
+intensities = ['.', ',', ";", "0", "#", "@"]
 
 class Vector3:
+    LEFT: Vector3 = None
+    UP: Vector3 = None
+    FORWARD: Vector3 = None
     def __init__(self, x: float, y: float, z: float):
         self.x = x
         self.y = y
@@ -15,6 +20,9 @@ class Vector3:
     
     def dot_product(self, other: "Vector3"):
         return self.x*other.x + self.y*other.y + self.z*other.z
+    
+    def hadamard_product(self, other: "Vector3"):
+        return Vector3(self.x*other.x, self.y*other.y, self.z*other.z)
     
     def square_magnitude(self):
         return self.dot_product(self)
@@ -29,15 +37,13 @@ class Vector3:
             return Vector3(0, 0, 0)
         return self / mag
     
-    def rotate(self, axis: "Vector3", angle: float):
-        real = math.cos(angle / 2)
-        vec_mag = math.sqrt(1 - real**2)
-        
-        vec = axis.direction() * vec_mag
-        
-        q = Quaternion(real, vec)
+    def rotate_about_axis(self, axis: "Vector3", angle: float) -> Vector3:
+        q = Quaternion.from_axis_angle(axis, angle)
         
         return (q * self * q.inverse()).vec
+    
+    def rotate_by_quaternion(self, quaternion: Quaternion) -> Vector3:
+        return (quaternion * self * quaternion.inverse()).vec
     
     def as_tuple(self):
         return self.x, self.y, self.z
@@ -64,6 +70,7 @@ class Vector3:
         return self * (-1)
     
 class Quaternion:
+    IDENTITY: Quaternion = None
     def __init__(self, real: float, vec: Vector3):
         self.real = real
         self.vec = vec
@@ -118,7 +125,42 @@ class Quaternion:
     
     def inverse(self):
         return Quaternion(self.real, -self.vec) / (self.real**2 + self.vec.square_magnitude())
+    
+    @classmethod
+    def from_euler(cls, x, y, z):
+        """
+        Returns quaternion representing rotation by z around z axis, then by x around x axis,
+        and finally by y around y axis
+        """
+        
+        q_x = cls.from_axis_angle(Vector3.LEFT, x / 2)
+        q_y = cls.from_axis_angle(Vector3.UP, y / 2)
+        q_z = cls.from_axis_angle(Vector3.FORWARD, z / 2)
+        
+        return q_y * q_x * q_z
+        
 
+    @classmethod
+    def from_axis_angle(cls, axis: Vector3, angle: float):
+        """
+        Returns a quaternion representing rotation by angle around axis
+        """
+        real = math.cos(angle / 2)
+
+        vec_mag = math.sqrt(1 - real**2)
+        vec = axis.direction() * vec_mag
+        
+        return cls(real, vec)
+        
+
+Vector3.LEFT = Vector3(1, 0, 0)
+Vector3.UP = Vector3(0, 1, 0)
+Vector3.FORWARD = Vector3(0, 0, 1)
+ZERO_VECTOR = Vector3(0, 0, 0)
+
+UNIT_SCALING = Vector3(1, 1, 1)
+
+Quaternion.IDENTITY = Quaternion(1, ZERO_VECTOR)
 
     
     
@@ -128,6 +170,9 @@ class Object_3D:
         self.position = position
         self.rotation = rotation
         self.scaling = scaling
+        
+class Light(Object_3D):
+    pass
 
 
 class Shape(Object_3D):
@@ -160,11 +205,24 @@ class Shape(Object_3D):
     def rotate(self):
         new_vertices = []
         for vertex in self.vertices:
-            new_vertex = Vector3(*vertex).rotate(Vector3(0, 1, 0), 0.4).as_tuple()
+            new_vertex = Vector3(*vertex).rotate_about_axis(Vector3.UP, 0.4).as_tuple()
             new_vertices.append(new_vertex)
         
         self.vertices = new_vertices
         self.calculate_normals()
+        
+class Cube(Shape):
+    def __init__(self, position: Vector3, rotation: Quaternion, scaling: Vector3):
+        vertices = [(-1, -1, -1), (-1, -1, 1), (-1, 1, -1), (-1, 1, 1), (1, -1, -1), (1, -1, 1), (1, 1, -1), (1, 1, 1)],
+        triangles = [(0, 1, 3), (0, 3, 2), (0, 4, 5), (0, 5, 1), (0, 2, 6), (0, 6, 4), (1, 5, 7), (1, 7, 3), (3, 7, 6), (3, 6, 2), (4, 6, 7), (4, 7, 5)],
+        super().__init__(vertices, triangles, position, rotation, scaling)
+        
+class Tetrahedron(Shape):
+    def __init__(self, position: Vector3, rotation: Quaternion, scaling: Vector3):
+        vertices = []
+        triangles = [(1, 2, 3), (1, 3, 4), (1, 4, 2), (2, 4, 3)]
+        super().__init__(vertices, triangles, position, rotation, scaling)
+        
             
 class Camera(Object_3D):
     def __init__(self, width: int, height: int, environment: "Environment", zoom: float, position: Vector3, rotation: Quaternion=None, scaling: Vector3=None):
@@ -237,8 +295,7 @@ class Camera(Object_3D):
         self.clear_screen()
 
         # TODO logic to calculate viewing normal
-        viewing_normal = (-1, -0.8, -1.2)
-        vec_normal = Vector3(*viewing_normal)
+        vec_normal = Vector3.FORWARD.rotate_by_quaternion(self.rotation)
         
         # Render each shape
         for shape in self.environment.shapes:
@@ -257,10 +314,20 @@ class Camera(Object_3D):
                     break
                     # TODO: add logic for perspective later
                 else: # Orthographic projection
-                    screen_triangle = tuple(self.world_to_screen_space((Vector3(*vertex)+self.position).as_tuple(), vec_normal) for vertex in actual_triangle)
+                    screen_triangle = tuple(
+                        self.world_to_screen_space(
+                            (
+                                Vector3(*vertex)
+                                    .hadamard_product(shape.scaling)
+                                    .rotate_by_quaternion(shape.rotation)
+                                + shape.position
+                            ).as_tuple(),
+                            vec_normal
+                        ) 
+                        for vertex in actual_triangle
+                    )
 
-                # Print the triangle to the console
-                self._render_triangle(intensities[int(cos_normal_viewing * 10)%6], screen_triangle)                 
+                self._render_triangle(intensities[int(cos_normal_viewing * 5.9)], screen_triangle)                 
                 
         return self.screen
         
@@ -273,12 +340,21 @@ def _triangle_index_to_triangle(triangle: tuple[int, int, int], vertices: list[t
  
 
 class Environment:
-    def __init__(self, shapes: list[Shape]):
+    def __init__(self, shapes: list[Shape], lights: list[Light]):
         self.shapes = shapes
-        self.mainCamera = Camera(70, 100, self, 3, Vector3(15., 5., 15.))
+        self.main_camera = Camera(
+            width=70, 
+            height=100, 
+            environment=self, 
+            zoom=2, 
+            position=Vector3(0, 0, 10),
+            rotation=Quaternion.from_euler(math.pi / 8, math.pi, 0),
+            scaling=UNIT_SCALING
+        )
+        self.lights = lights
         
     def render(self):
-        return self.mainCamera.render()
+        return self.main_camera.render()
 
     
                 
@@ -286,27 +362,27 @@ class Environment:
                 
 
 if __name__ == "__main__":
-    s = Shape(
-        vertices=[(-5, -5, -5), (-5, -5, 5), (-5, 5, -5), (-5, 5, 5), (5, -5, -5), (5, -5, 5), (5, 5, -5), (5, 5, 5)],
-        triangles=[(0, 1, 3), (0, 3, 2), (0, 4, 5), (0, 5, 1), (0, 2, 6), (0, 6, 4), (1, 5, 7), (1, 7, 3), (3, 7, 6), (3, 6, 2), (4, 6, 7), (4, 7, 5)],
+    s = Cube(
         position=Vector3(5., 5., 5.),
+        rotation=Quaternion.IDENTITY,
+        scaling=UNIT_SCALING * 5
+    )
+
+    s_2 = Cube(
+        position=Vector3(5., -5., -5.),
+        rotation=Quaternion.IDENTITY,
+        scaling=Vector3(1, 0.5, 1) * 5
     )
     
     
-    e = Environment([s])
+    e = Environment([s, s_2], [])
 
     time = 0 
     while True:
         output = e.render()
         time += 1
         s.rotate()
-        
-        # for row in output:
-        #     new_row = [element for tup in zip(row, row) for element in tup]
-        #     new_row.append(".")
-            
-        #     print("".join(new_row))
-            
+
         with open("output.txt", 'w') as file:
             output_str = ""
             for row in output:
@@ -316,6 +392,5 @@ if __name__ == "__main__":
 
             file.write(output_str)
             
-        sleep(2)
-        _ = system("cls")
+        sleep(0.5)
         
