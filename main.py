@@ -188,6 +188,7 @@ class Shape(Object_3D):
 
         self.vertices = vertices
         self.triangles = triangles
+        self.hidden = False
         
         self.calculate_normals()
     
@@ -195,20 +196,18 @@ class Shape(Object_3D):
         self.normals: list[Vector3] = []
         
         for triangle in self.triangles:
-            a_vec, b_vec, c_vec = [Vector3(*self.vertices[i]) for i in triangle]
+            a_vec, b_vec, c_vec = [self.location_of_vertex(self.vertices[i]) for i in triangle]
             
             normal = (b_vec - a_vec).cross_product(c_vec - a_vec).direction()
             
             self.normals.append(normal)
+            
+    def location_of_vertex(self, vertex):
+        return self.position + Vector3(*vertex).hadamard_product(self.scaling).rotate_by_quaternion(self.rotation)
         
             
     def rotate(self):
-        new_vertices = []
-        for vertex in self.vertices:
-            new_vertex = Vector3(*vertex).rotate_about_axis(Vector3.UP, 0.1).as_tuple()
-            new_vertices.append(new_vertex)
-        
-        self.vertices = new_vertices
+        self.rotation = Quaternion.from_axis_angle(Vector3.UP, 0.1) * self.rotation
         self.calculate_normals()
         
     @classmethod
@@ -222,14 +221,28 @@ class Shape(Object_3D):
             for line in lines:
                 line = line.strip()
                 tokens = line.split(" ")
+                
+                tokens = [token for token in tokens if token != '']
+
                 if len(tokens) == 0:
                     continue
 
-                if tokens[0] == 'v':
+                if tokens[0] == '#':
+                    continue
+                elif tokens[0] == 'v':
                     vertices.append((float(tokens[1]), float(tokens[2]), float(tokens[3])))
                 elif tokens[0] == 'f':
-                    first, second, third = [int(tok.split("/")[0]) for tok in tokens[1:]]
-                    triangles.append((first - 1, second - 1, third - 1))
+                    verts = [int(tok.split("/")[0]) for tok in tokens[1:]]
+                    if len(verts) == 3:
+                        first, second, third = verts
+                        triangles.append((first - 1, second - 1, third - 1))
+                    elif len(verts) == 4:
+                        first, second, third, fourth = verts
+                        triangles.append((first - 1, second - 1, third - 1))
+                        triangles.append((third - 1, fourth - 1, first - 1))
+                    else:
+                        raise ValueError("Faces must be triangles or quads")
+                        
         
         return cls(vertices, triangles, position, rotation, scaling)
         
@@ -263,13 +276,19 @@ class Camera(Object_3D):
         x, y = point
         return 0 <= x < self.width and 0 <= y < self.height
 
-    def _render_triangle(self, intensity: float, triangle: tuple[tuple[int, int], tuple[int, int], tuple[int, int]]):
+    def _render_triangle(self, intensity: float, triangle_3d: tuple[Vector3, Vector3, Vector3], viewing_normal: Vector3, triangle_normal: Vector3):
+        triangle = [self.world_to_screen_space(point.as_tuple(), viewing_normal, self.perspective, self.depth) for point in triangle_3d]
+
         rect_min_x = min([vertex[0] for vertex in triangle])
         rect_max_x = max([vertex[0] for vertex in triangle])
         rect_min_y = min([vertex[1] for vertex in triangle])
         rect_max_y = max([vertex[1] for vertex in triangle])
             
         a, b, c = triangle
+        a_cam_vec = self.position
+        n_vec = triangle_normal
+        
+        depth_normal = self.depth*viewing_normal.direction()
 
         for y in range(rect_min_y, rect_max_y + 1):
             for x in range(rect_min_x, rect_max_x + 1):
@@ -285,10 +304,22 @@ class Camera(Object_3D):
                 c_a = x_c[0]*x_a[1]-x_a[0]*x_c[1]
                 
                 if a_b <= 0 and b_c <= 0 and c_a <= 0 or a_b >= 0 and b_c >= 0 and c_a >= 0:
-                    self.screen[y][x] = intensity
+
+                    u = x - self.width // 2
+                    v = self.height // 2 - y
+                    
+                    p_prime_vec = u*self.x_vec + v*self.y_vec + depth_normal
+                    a_triangle_vec = triangle_3d[0]
+                    
+                    dist = (a_triangle_vec - a_cam_vec).dot_product(n_vec) * (p_prime_vec.magnitude() / p_prime_vec.dot_product(n_vec))
+                    
+                    if dist < self.z_buffer[y][x]:
+                        self.screen[y][x] = intensity
+                        self.z_buffer[y][x] = dist
 
     def clear_screen(self):
         self.screen = [[" " for _ in range(self.width)] for _ in range(self.height)]
+        self.z_buffer = [[float("inf") for _ in range(self.width)] for _ in range(self.height)]
 
     def world_to_screen_space(self, point: tuple[int, int, int], viewing_normal: Vector3, perspective=False, depth=None):
         p_vec = Vector3(*point)
@@ -298,6 +329,9 @@ class Camera(Object_3D):
         # Screen space unit vectors
         x_vec = b_vec.cross_product(Vector3(0, 1, 0)).direction()
         y_vec = x_vec.cross_product(b_vec).direction()
+        
+        self.x_vec = x_vec
+        self.y_vec = y_vec
         
         p_minus_a = p_vec - a_vec
         
@@ -329,6 +363,9 @@ class Camera(Object_3D):
         
         # Render each shape
         for shape in self.environment.shapes:
+            if shape.hidden:
+                continue
+
             # For each triangle and its normal in the shape
             for triangle, normal in zip(shape.triangles, shape.normals):
                 cos_normal_viewing = -normal.dot_product(vec_normal) / vec_normal.magnitude()
@@ -349,22 +386,17 @@ class Camera(Object_3D):
                 # Get actual triangle instead of the conventional representation
                 actual_triangle = _triangle_index_to_triangle(triangle, shape.vertices)
                 
-                screen_triangle = tuple(
-                    self.world_to_screen_space(
-                        point=(
-                            Vector3(*vertex)
-                                .hadamard_product(shape.scaling)
-                                .rotate_by_quaternion(shape.rotation)
-                            + shape.position
-                        ).as_tuple(),
-                        viewing_normal=vec_normal,
-                        perspective=self.perspective,
-                        depth=self.depth
-                    ) 
+                transformed_triangle = tuple(
+                    (
+                        Vector3(*vertex)
+                            .hadamard_product(shape.scaling)
+                            .rotate_by_quaternion(shape.rotation)
+                        + shape.position
+                    )
                     for vertex in actual_triangle
                 )
 
-                self._render_triangle(intensities[int(cos_normal_viewing * 5.9)], screen_triangle)                 
+                self._render_triangle(intensities[int(cos_normal_viewing * 5.9)], transformed_triangle, vec_normal, normal)                 
                 
         return self.screen
         
@@ -383,11 +415,11 @@ class Environment:
             width=70,
             height=50, 
             environment=self, 
-            zoom=0.4,
+            zoom=1,
             perspective=True,
             depth=100,
-            position=Vector3(0, 10, 30),
-            rotation=Quaternion.from_euler(math.pi / 8, math.pi, 0),
+            position=Vector3(0, 30, 30),
+            rotation=Quaternion.from_euler(math.pi / 4, math.pi, 0),
             scaling=UNIT_SCALING
         )
         self.lights = lights
@@ -416,21 +448,33 @@ if __name__ == "__main__":
     )
     
     s_4 = Shape.from_obj(
-        filename="sphere.obj", 
-        position=Vector3(5, 10, 0),
+        filename="teapot.obj", 
+        position=Vector3(0, 0, 0),
         rotation=Quaternion.IDENTITY,
         scaling=UNIT_SCALING * 3
     )
     
     
-    e = Environment([s_2, s, s_3, s_4], [])
+    s_5 = Shape.from_obj(
+        filename="among us.obj", 
+        position=Vector3(0, 0, 0),
+        rotation=Quaternion.IDENTITY,
+        scaling=UNIT_SCALING / 10 
+    )
+    
+    s.hidden = True
+    s_2.hidden = True
+    s_3.hidden = True
+    s_4.hidden = True
+    
+    e = Environment([s, s_2, s_3, s_4, s_5], [])
 
     time = 0 
     while True:
         output = e.render()
         time += 1
-        s.rotate()
-        s_4.rotate()
+        # s.rotate()
+        s_5.rotate()
 
         with open("output.txt", 'w') as file:
             output_str = ""
