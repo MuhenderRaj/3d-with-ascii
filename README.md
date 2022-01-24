@@ -1,3 +1,7 @@
+# 3D ASCII model
+
+![Utah Teapot rendered in ASCII](./teapot.jpg)
+
 # Instructions for setting up
 
 First clone the repository by `git clone https://github.com/MuhenderRaj/3d-with-ascii.git`.

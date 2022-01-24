@@ -418,8 +418,8 @@ class Environment:
             zoom=1,
             perspective=True,
             depth=100,
-            position=Vector3(0, 30, 30),
-            rotation=Quaternion.from_euler(math.pi / 4, math.pi, 0),
+            position=Vector3(0, 25, 30),
+            rotation=Quaternion.from_euler(math.pi / 6, math.pi, 0),
             scaling=UNIT_SCALING
         )
         self.lights = lights
@@ -459,7 +459,7 @@ if __name__ == "__main__":
         filename="among us.obj", 
         position=Vector3(0, 0, 0),
         rotation=Quaternion.IDENTITY,
-        scaling=UNIT_SCALING / 10 
+        scaling=UNIT_SCALING / 15 
     )
     
     s.hidden = True
