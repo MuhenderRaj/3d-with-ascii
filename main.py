@@ -1,170 +1,16 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 import math
-from os import system
+import os
 from time import sleep
+
+from math_3d import *
+from config import *
 
 intensities = ['.', ',', ";", "0", "#", "@"]
 
-class Vector3:
-    LEFT: Vector3 = None
-    UP: Vector3 = None
-    FORWARD: Vector3 = None
-    def __init__(self, x: float, y: float, z: float):
-        self.x = x
-        self.y = y
-        self.z = z
-    
-    def cross_product(self, other: "Vector3"):
-        return Vector3(self.y*other.z - self.z*other.y, self.z*other.x - self.x*other.z, self.x*other.y - self.y*other.x)
-    
-    def dot_product(self, other: "Vector3"):
-        return self.x*other.x + self.y*other.y + self.z*other.z
-    
-    def hadamard_product(self, other: "Vector3"):
-        return Vector3(self.x*other.x, self.y*other.y, self.z*other.z)
-    
-    def square_magnitude(self):
-        return self.dot_product(self)
 
-    def magnitude(self):
-        return math.sqrt(self.square_magnitude())
-    
-    def direction(self):
-        mag = self.magnitude()
-        
-        if mag == 0:
-            return Vector3(0, 0, 0)
-        return self / mag
-    
-    def rotate_about_axis(self, axis: "Vector3", angle: float) -> Vector3:
-        q = Quaternion.from_axis_angle(axis, angle)
-        
-        return (q * self * q.inverse()).vec
-    
-    def rotate_by_quaternion(self, quaternion: Quaternion) -> Vector3:
-        return (quaternion * self * quaternion.inverse()).vec
-    
-    def as_tuple(self):
-        return self.x, self.y, self.z
-
-    def as_int_tuple(self):
-        return int(self.x), int(self.y), int(self.z)
-    
-    def __sub__(self, other: "Vector3"):
-        return self + -other
-
-    def __add__(self, other: "Vector3"):
-        return Vector3(self.x+other.x, self.y+other.y, self.z+other.z)
-    
-    def __truediv__(self, number: float):
-        return Vector3(self.x/number, self.y/number, self.z/number)
-    
-    def __mul__(self, number: float):
-        return Vector3(self.x*number, self.y*number, self.z*number)
-
-    def __rmul__(self, number: float):
-        return self * number
-    
-    def __neg__(self):
-        return self * (-1)
-    
-class Quaternion:
-    IDENTITY: Quaternion = None
-    def __init__(self, real: float, vec: Vector3):
-        self.real = real
-        self.vec = vec
-    
-    def __add__(self, other):
-        if type(other) == Quaternion:
-            return Quaternion(self.real+other.real, self.vec+other.vec)
-        elif type(other) == Vector3:
-            return Quaternion(self.real, self.vec+other)
-        elif type(other) in [int, float]:
-            return Quaternion(self.real+other, self.vec)
-        else:
-            raise Exception("Huh?")
-    
-    def __radd__(self, other):
-        return self + other
-
-    def __neg__(self):
-        return Quaternion(-self.real, -self.vec)
-
-    def __sub__(self, other):
-        return self + -other
-
-    def __rsub__(self, other):
-        return -self + other
-    
-    def __mul__(self, other):
-        if type(other) == Quaternion:
-            return Quaternion(
-                self.real*other.real - self.vec.dot_product(other.vec), 
-                self.real*other.vec + other.real*self.vec + self.vec.cross_product(other.vec)
-            )
-        elif type(other) == Vector3:
-            return Quaternion(
-                -self.vec.dot_product(other),
-                self.real*other + self.vec.cross_product(other)
-            )
-        elif type(other) in [int, float]:
-            return Quaternion(self.real*other, self.vec*other)
-        
-    def __rmul__(self, other):
-        if type(other) == Quaternion:
-            return other * self
-        else:
-            return self * other
-        
-    def __truediv__(self, other) -> "Quaternion":
-        if type(other) == Quaternion:
-            return self * other.inverse()
-        else:
-            return self * (1 / other)
-    
-    def inverse(self):
-        return Quaternion(self.real, -self.vec) / (self.real**2 + self.vec.square_magnitude())
-    
-    @classmethod
-    def from_euler(cls, x, y, z):
-        """
-        Returns quaternion representing rotation by z around z axis, then by x around x axis,
-        and finally by y around y axis
-        """
-        
-        q_x = cls.from_axis_angle(Vector3.LEFT, x)
-        q_y = cls.from_axis_angle(Vector3.UP, y)
-        q_z = cls.from_axis_angle(Vector3.FORWARD, z)
-        
-        return q_y * q_x * q_z
-        
-
-    @classmethod
-    def from_axis_angle(cls, axis: Vector3, angle: float):
-        """
-        Returns a quaternion representing rotation by angle around axis
-        """
-        real = math.cos(angle / 2)
-
-        vec_mag = math.sqrt(1 - real**2)
-        vec = axis.direction() * vec_mag
-        
-        return cls(real, vec)
-        
-
-Vector3.LEFT = Vector3(1, 0, 0)
-Vector3.UP = Vector3(0, 1, 0)
-Vector3.FORWARD = Vector3(0, 0, 1)
-ZERO_VECTOR = Vector3(0, 0, 0)
-
-UNIT_SCALING = Vector3(1, 1, 1)
-
-Quaternion.IDENTITY = Quaternion(1, ZERO_VECTOR)
-
-    
-    
-    
 class Object_3D:
     def __init__(self, position: Vector3, rotation: Quaternion, scaling: Vector3):
         self.position = position
@@ -206,7 +52,8 @@ class Shape(Object_3D):
         return self.position + Vector3(*vertex).hadamard_product(self.scaling).rotate_by_quaternion(self.rotation)
         
             
-    def rotate(self):
+    def update(self, timestamp):
+        # rotates by default
         self.rotation = Quaternion.from_axis_angle(Vector3.UP, 0.1) * self.rotation
         self.calculate_normals()
         
@@ -409,8 +256,8 @@ def _triangle_index_to_triangle(triangle: tuple[int, int, int], vertices: list[t
  
 
 class Environment:
-    def __init__(self, shapes: list[Shape], lights: list[Light]):
-        self.shapes = shapes
+    def __init__(self, shapes: list[Shape]=None, lights: list[Light]=None):
+        self.shapes = shapes if shapes is not None else []
         self.main_camera = Camera(
             width=70,
             height=50, 
@@ -422,59 +269,89 @@ class Environment:
             rotation=Quaternion.from_euler(math.pi / 6, math.pi, 0),
             scaling=UNIT_SCALING
         )
-        self.lights = lights
+        self.lights = lights if lights is not None else []
+        
+    def update(self, timestamp):
+        for shape in self.shapes:
+            shape.update(timestamp)
         
     def render(self):
         return self.main_camera.render()
+    
+    def create_shape_from_file(self, filepath: type[Shape], position: Vector3, rotation: Quaternion, scaling: Vector3):
+        new_shape = Shape.from_obj(filepath, position, rotation, scaling)
+        self.shapes.append(new_shape)
+        return new_shape
+
+    def create_custom_shape(self, shape: type[Shape], position: Vector3, rotation: Quaternion, scaling: Vector3):
+        return self.create_shape_from_file(os.path.join(CUSTOM_SHAPES_DIR, f"{shape}.obj"), position, rotation, scaling)
+
+    def create_preset_shape(self, shape: type[Shape], position: Vector3, rotation: Quaternion, scaling: Vector3):
+        return self.create_shape_from_file(f"presets/{shape}.obj", position, rotation, scaling)
+
+    def create_cube(self, position: Vector3, rotation: Quaternion, scaling: Vector3):
+        new_shape = Cube(position, rotation, scaling)
+        self.shapes.append(new_shape)
+        return new_shape
+
+    def create_tetrahedron(self, position: Vector3, rotation: Quaternion, scaling: Vector3):
+        new_shape = Tetrahedron(position, rotation, scaling)
+        self.shapes.append(new_shape)
+        return new_shape
+
 
     
 if __name__ == "__main__":
-    s = Cube(
+    e = Environment()
+
+    s = e.create_cube(
         position=Vector3(0, 0, 0),
         rotation=Quaternion.IDENTITY,
         scaling=UNIT_SCALING * 5
     )
 
-    s_2 = Cube(
+    s_2 = e.create_cube(
         position=Vector3(5, -5, -5),
         rotation=Quaternion.IDENTITY,
         scaling=Vector3(1, 0.5, 1) * 5
     )
     
-    s_3 = Tetrahedron(
+    s_3 = e.create_tetrahedron(
         position=Vector3(5, 5, 5),
         rotation=Quaternion.IDENTITY,
         scaling=UNIT_SCALING * 5
     )
     
-    s_4 = Shape.from_obj(
-        filename="teapot.obj", 
+    s_4 = e.create_preset_shape(
+        shape="teapot", 
         position=Vector3(0, 0, 0),
         rotation=Quaternion.IDENTITY,
         scaling=UNIT_SCALING * 3
     )
     
     
-    s_5 = Shape.from_obj(
-        filename="among us.obj", 
+    s_5 = e.create_preset_shape(
+        shape="among us", 
         position=Vector3(0, 0, 0),
         rotation=Quaternion.IDENTITY,
         scaling=UNIT_SCALING / 15 
     )
     
-    s.hidden = True
+    # s.hidden = True
     s_2.hidden = True
     s_3.hidden = True
     s_4.hidden = True
     
-    e = Environment([s, s_2, s_3, s_4, s_5], [])
+    # e = Environment([s, s_2, s_3, s_4, s_5], [])
+    
+    # e = Environment()
 
     time = 0 
     while True:
         output = e.render()
         time += 1
         # s.rotate()
-        s_5.rotate()
+        e.update(time)
 
         with open("output.txt", 'w') as file:
             output_str = ""
