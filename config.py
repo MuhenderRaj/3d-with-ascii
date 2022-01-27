@@ -1,1 +1,1 @@
-CUSTOM_SHAPES_DIR="custom_shapes"
+CUSTOM_SHAPES_DIR="custom_models"

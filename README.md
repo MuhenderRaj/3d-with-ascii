@@ -6,7 +6,9 @@
 
 First clone the repository by `git clone https://github.com/MuhenderRaj/3d-with-ascii.git`.
 
-Then, run `main.py`.
+Then, run `main.py` for a sample program.
+
+To define your own scripts, follow the template in `template.py`.
 
 The output is written to `output.txt` and updated every 0.5 seconds. 
 

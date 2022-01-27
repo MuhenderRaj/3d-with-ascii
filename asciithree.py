@@ -4,18 +4,37 @@ from __future__ import annotations
 import math
 import os
 from time import sleep
+from abc import abstractmethod
 
 from math_3d import *
 from config import *
 
 intensities = ['.', ',', ";", "0", "#", "@"]
 
+class Behavior:
+    def start(self, shape: Shape):
+        pass
+    
+    def update(self, timestamp: int, shape: Shape):
+        pass
 
 class Object_3D:
     def __init__(self, position: Vector3, rotation: Quaternion, scaling: Vector3):
         self.position = position
         self.rotation = rotation
         self.scaling = scaling
+        self.behaviors: list[Behavior] = []
+        
+    def update(self, timestamp: int):
+        # self.rotation = Quaternion.from_axis_angle(Vector3.UP, 0.1) * self.rotation
+        for behavior in self.behaviors:
+            behavior.update(timestamp, self)
+    
+    def add_behavior(self, behavior: Behavior):
+        self.behaviors.append(behavior)
+        behavior.start(self)
+    
+
         
 class Light(Object_3D):
     pass
@@ -50,12 +69,12 @@ class Shape(Object_3D):
             
     def location_of_vertex(self, vertex):
         return self.position + Vector3(*vertex).hadamard_product(self.scaling).rotate_by_quaternion(self.rotation)
+    
+    def update(self, timestamp: int):
+        super().update(timestamp)
+        self.calculate_normals()
         
             
-    def update(self, timestamp):
-        # rotates by default
-        self.rotation = Quaternion.from_axis_angle(Vector3.UP, 0.1) * self.rotation
-        self.calculate_normals()
         
     @classmethod
     def from_obj(cls, filename: str, position: Vector3, rotation: Quaternion, scaling: Vector3):
@@ -258,22 +277,24 @@ def _triangle_index_to_triangle(triangle: tuple[int, int, int], vertices: list[t
 class Environment:
     def __init__(self, shapes: list[Shape]=None, lights: list[Light]=None):
         self.shapes = shapes if shapes is not None else []
-        self.main_camera = Camera(
-            width=70,
-            height=50, 
-            environment=self, 
-            zoom=1,
-            perspective=True,
-            depth=100,
-            position=Vector3(0, 25, 30),
-            rotation=Quaternion.from_euler(math.pi / 6, math.pi, 0),
-            scaling=UNIT_SCALING
-        )
+        # self.main_camera = Camera(
+        #     width=70,
+        #     height=50, 
+        #     environment=self, 
+        #     zoom=1,
+        #     perspective=True,
+        #     depth=100,
+        #     position=Vector3(0, 25, 30),
+        #     rotation=Quaternion.from_euler(math.pi / 6, math.pi, 0),
+        #     scaling=UNIT_SCALING
+        # )
+        self.main_camera: Camera = None
         self.lights = lights if lights is not None else []
         
     def update(self, timestamp):
         for shape in self.shapes:
             shape.update(timestamp)
+        self.main_camera.update(timestamp)
         
     def render(self):
         return self.main_camera.render()
@@ -300,6 +321,23 @@ class Environment:
         return new_shape
 
 
+def main_loop(env: Environment, output_file: str="output.txt", sleep_time: float=0.1):
+    timestamp = 0
+    while True:
+        env.update(timestamp)
+        output = env.render()
+        timestamp += 1
+
+        with open(output_file, 'w') as file:
+            output_str = ""
+            for row in output:
+                new_row = "".join([element for tup in zip(row, row) for element in tup])
+                output_str += new_row
+                output_str += "\n"
+
+            file.write(output_str)
+        
+        sleep(0.1)
     
 if __name__ == "__main__":
     e = Environment()
