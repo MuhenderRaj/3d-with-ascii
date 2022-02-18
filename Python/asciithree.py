@@ -17,6 +17,13 @@ class Behavior:
     
     def update(self, timestamp: int, shape: Shape):
         pass
+    
+############################
+# Some built-in behaviors
+
+
+
+############################
 
 class Object_3D:
     def __init__(self, position: Vector3, rotation: Quaternion, scaling: Vector3):
