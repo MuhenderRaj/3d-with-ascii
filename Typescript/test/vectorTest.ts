@@ -63,4 +63,17 @@ describe('Vector3 tests', function () {
             vec1.divideByScalar(0);
         }, "Dividing by zero should throw error");
     });
+
+    it('add, subtract, and negate tests', function () {
+        const vec1 = new Vector3(9, 5, 3);
+        const vec2 = new Vector3(8, 1, -1);
+
+        assert.deepStrictEqual(vec1.add(vec2), new Vector3(17, 6, 2), "Incorrect sum of vectors");
+        assert.deepStrictEqual(vec1.add(Vector3.zero), vec1, "Incorrect sum with zero vector");
+
+        assert.deepStrictEqual(vec1.subtract(vec2), new Vector3(1, 4, 4), "Incorrect difference of vectors");
+        assert.deepStrictEqual(vec1.subtract(Vector3.zero), vec1, "Incorrect difference with zero vector");
+
+        assert.deepStrictEqual(vec1.negate(), new Vector3(-9, -5, -3), "Incorrect negation of vector");
+    });
 });

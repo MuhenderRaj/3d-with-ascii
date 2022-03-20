@@ -60,6 +60,8 @@ export class Vector3 {
         );
     }
 
+    /// VECTOR PROPERTIES ///
+
     /**
      * The squared magnitude of the vector
      */
@@ -87,6 +89,9 @@ export class Vector3 {
         return this.divideByScalar(magnitude);
     }
 
+
+    /// SCALAR OPERATIONS ///
+
     /**
      * 
      * @param num the number to be multiplied to the vector
@@ -108,5 +113,33 @@ export class Vector3 {
         }
 
         return new Vector3(this.x / num, this.y / num, this.z / num);
+    }
+
+    /// VECTOR LINEAR OPERATIONS ///
+
+    /**
+     * 
+     * @param other the other vector to add
+     * @returns the sum of the vectors `this` and `other` as a new vector
+     */
+    public add(other: Vector3): Vector3 {
+        return new Vector3(this.x + other.x, this.y + other.y, this.z + other.z);
+    }
+    
+    /**
+     * 
+     * @param other the vector to subtract from `this`
+     * @returns the difference of the vectors `this` and `other` as a new vector
+     */
+    public subtract(other: Vector3): Vector3 {
+        return this.add(other.negate());
+    }
+
+    /**
+     * 
+     * @returns the negation of the components of `this` as a new vector
+     */
+    public negate(): Vector3 {
+        return new Vector3(-this.x, -this.y, -this.z);
     }
 }
