@@ -1,5 +1,3 @@
-import assert from 'assert';
-
 /**
  * A class representing an immutable 3-dimensional vector.
  */
@@ -141,5 +139,22 @@ export class Vector3 {
      */
     public negate(): Vector3 {
         return new Vector3(-this.x, -this.y, -this.z);
+    }
+
+    /// VECTOR REPRESENTATION ///
+
+    /**
+     * @inheritdoc
+     */
+    public toString(): string {
+        return `Vector3(${this.x}, ${this.y}, ${this.z})`;
+    }
+
+    /**
+     * 
+     * @returns an array of the components of the vector, in order x, y, z
+     */
+    public asArray(): Array<number> {
+        return [this.x, this.y, this.z];
     }
 }
