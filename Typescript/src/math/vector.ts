@@ -59,4 +59,54 @@ export class Vector3 {
             this.z * other.z
         );
     }
+
+    /**
+     * The squared magnitude of the vector
+     */
+    public get squareMagnitude(): number {
+        return this.dotProduct(this);
+    }
+    /**
+     * The magnitude of the vector
+     */
+    public get magnitude(): number {
+        return Math.sqrt(this.squareMagnitude);
+    }
+
+    /**
+     * The direction of the vector as a unit vector.
+     * The zero vector if the vector is a zero vector.
+     */
+    public get direction(): Vector3 {
+        const magnitude = this.magnitude;
+
+        if (magnitude === 0) {
+            return Vector3.zero;
+        }
+
+        return this.divideByScalar(magnitude);
+    }
+
+    /**
+     * 
+     * @param num the number to be multiplied to the vector
+     * @returns a new vector with its components scaled by `number`
+     */
+    public multiplyByScalar(num: number): Vector3 {
+        return new Vector3(this.x * num, this.y * num, this.z * num);
+    }
+
+    /**
+     * 
+     * @param num the numeber to divide the vector by
+     * @returns a new vector with its components divided by `number`
+     * @throws Error if num is zero
+     */
+    public divideByScalar(num: number): Vector3 {
+        if (num === 0) {
+            throw new Error("Attempted to divide by zero");
+        }
+
+        return new Vector3(this.x / num, this.y / num, this.z / num);
+    }
 }
