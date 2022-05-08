@@ -154,7 +154,7 @@ export class Vector3 {
      * 
      * @returns an array of the components of the vector, in order x, y, z
      */
-    public asArray(): Array<number> {
+    public asArray(): [number, number, number] {
         return [this.x, this.y, this.z];
     }
 }
