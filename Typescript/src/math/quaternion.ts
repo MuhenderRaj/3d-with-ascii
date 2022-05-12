@@ -29,7 +29,11 @@ export class Quaternion {
      *          then x axis, then y axis by the specified amounts
      */
     public static fromEuler(rotX: number, rotY: number, rotZ: number): Quaternion {
-        throw new Error("Not implemented yet!");
+        const q_x = this.fromAxisAngle(Vector3.left, rotX);
+        const q_y = this.fromAxisAngle(Vector3.up, rotY);
+        const q_z = this.fromAxisAngle(Vector3.forward, rotZ);
+
+        return q_y.multiply(q_x).multiply(q_z);
     }
 
     /**
@@ -54,7 +58,9 @@ export class Quaternion {
      * @param num the number to be multiplied to the quaternion
      * @returns a new quaternion with its components scaled by `number`
      */
-    public multiplyByScalar(num: number): Quaternion { }
+    public multiplyByScalar(num: number): Quaternion { 
+        return new Quaternion(this.real * num, this.vec.multiplyByScalar(num));
+    }
 
     /**
      * 
@@ -62,7 +68,12 @@ export class Quaternion {
      * @returns a new quaternion with its components divided by `number`
      * @throws Error if num is zero
      */
-    public divideByScalar(num: number): Quaternion { }
+    public divideByScalar(num: number): Quaternion {
+        if (num === 0)
+            throw new Error("Attempted to divide by zero");
+    
+        return this.multiplyByScalar(1 / num);
+    }
     
     /// QUATERNION LINEAR OPERATIONS ///
 
@@ -71,19 +82,25 @@ export class Quaternion {
      * @param other the other quaternion to add
      * @returns the sum of the quaternions `this` and `other` as a new quaternion
      */
-    public add(other: Quaternion): Quaternion { }
+    public add(other: Quaternion): Quaternion {
+        return new Quaternion(this.real + other.real, this.vec.add(other.vec));
+    }
     
     /**
      * 
      * @param other the other quaternion to subtract from `this`
      * @returns the difference of the quaternions `this` and `other` as a new quaternion
      */
-    public subtract(other: Quaternion): Quaternion { }
+    public subtract(other: Quaternion): Quaternion {
+        return this.add(other.negate());
+    }
 
     /**
      * @returns the negation of the components of `this` as a new quaternion
      */
-    public negate(): Quaternion { }
+    public negate(): Quaternion {
+        return new Quaternion(-this.real, this.vec.negate());
+    }
     
     /// QUATERNION MULTIPLICATION AND DIVISION ///
 
@@ -92,7 +109,15 @@ export class Quaternion {
      * @param other the other quaternion to compute the quaternion product
      * @returns the quaternion product `this`*`other`
      */
-    public multiply(other: Quaternion): Quaternion { }
+    public multiply(other: Quaternion): Quaternion {
+        // (a + V_1)*(b + V_2) = (ab - V_1 . V_2) + (aV_2 + bV_1 + V_1 x V_2)
+        return new Quaternion(
+            this.real * other.real - this.vec.dotProduct(other.vec),
+            other.vec.multiplyByScalar(this.real)
+                .add(this.vec.multiplyByScalar(other.real))
+                .add(this.vec.crossProduct(other.vec))
+        );
+    }
     
     /**
      * 
@@ -100,35 +125,52 @@ export class Quaternion {
      * @returns the quaternion division result of `this`/`other`
      * @throws Error if `other` is the zero quaternion
      */
-    public divideBy(other: Quaternion): Quaternion { }
+    public divideBy(other: Quaternion): Quaternion {
+        return this.multiply(other.inverse());
+    }
     
     /**
      * @returns a new quaternion that is the inverse of `this`, 
      *      such that this*this.inverse() = 1
      * @throws Error if `this` is the zero quaternion
      */
-    public inverse(): Quaternion { }
+    public inverse(): Quaternion {
+        const magnitudeSquared = this.real ** 2 + this.vec.squareMagnitude;
+        if (magnitudeSquared === 0) {
+            throw new Error("Attempted to divide by zero quaternion");
+        }
+
+        return new Quaternion(this.real, this.vec.negate()).divideByScalar(magnitudeSquared);
+    }
 
     /// QUATERNION REPRESENTATION ///
 
     /**
      * @inheritdoc
      */
-    public toString(): string { }
+    public toString(): string {
+        return `Quaternion(${this.real}, ${this.vec})`;
+    }
     
     /**
      * @returns an array of the components of the quaternion, in order real, i, j, k
      */
-    public asArray(): [number, number, number, number] { }
+    public asArray(): [number, number, number, number] {
+        return [this.real, ...this.vec.asArray()];
+    }
     
     /**
      * @returns a record type of the axis and angle of rotation encoded by this quaternion
      */
-    public asAxisAngle(): { axis: number, angle: number } { }
+    public asAxisAngle(): { axis: number, angle: number } {
+        throw new Error("Not implemented yet");
+    }
     
     /**
      * @returns the Euler angles associated with this quaternion as a record type
      */
-    public asEuler(): { rotX: number, rotY: number, rotZ: number } { }
+    public asEuler(): { rotX: number, rotY: number, rotZ: number } {
+        throw new Error("Not implemented yet");
+    }
     
 }
