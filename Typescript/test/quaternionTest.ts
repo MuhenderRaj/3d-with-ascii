@@ -63,6 +63,6 @@ describe('Quaternion tests', function () {
         assert(checkQuaternionEquality(q1.subtract(q2), new Quaternion(0, new Vector3(1, 4, 4))), "Incorrect difference of quaternions");
         assert(checkQuaternionEquality(q1.subtract(new Quaternion(0, Vector3.zero)), q1), "Incorrect difference with zero quaternion");
 
-        assert(checkQuaternionEquality(q1.negate(), new Quaternion(0, new Vector3(-9, -5, -3))), "Incorrect negation of quaternion");
+        assert(checkQuaternionEquality(q1.negate(), new Quaternion(-4, new Vector3(-9, -5, -3))), "Incorrect negation of quaternion");
     });
 });
