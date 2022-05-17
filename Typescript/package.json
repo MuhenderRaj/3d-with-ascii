@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "tsc && npx mocha --require source-map-support/register dist/test",
-    "start": "tsc && node -r source-map-support/register dist/index.js"
+    "start": "tsc && node -r source-map-support/register dist/index.js",
+    "watchify-client": "mkdir -p dist && npx watchify src/index.ts -v --debug -p tsify -o dist/bundle.js"
   },
   "keywords": [
     "TypeScript",
@@ -23,6 +24,8 @@
     "typescript": "^4.5.5"
   },
   "dependencies": {
-    "canvas": "^2.9.1"
+    "canvas": "^2.9.1",
+    "tsify": "^5.0.4",
+    "watchify": "^4.0.0"
   }
 }
