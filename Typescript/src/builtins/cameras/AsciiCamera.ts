@@ -24,7 +24,7 @@ export class AsciiCamera implements Camera {
 
 
 
-    public render(env: Environment): Canvas {
+    public render(env: Environment): HTMLCanvasElement {
         throw new Error("Method not implemented.");
     }
 

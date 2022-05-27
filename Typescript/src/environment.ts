@@ -1,5 +1,8 @@
 import { Shape, Camera, Light, Entity } from './builtins/interfaces';
 
+/**
+ * Singleton class representing the environment
+ */
 export class Environment {
     private static environment: Environment | undefined;
 
@@ -59,5 +62,27 @@ export class Environment {
             .concat(this.shapes)
             .concat(this.cameras)
             .concat(this.lights));
+    }
+
+    /**
+     * @returns an array of the shape objects in the environment
+     */
+    public getShapes(): Array<Shape> {
+        return this.shapes.slice();
+    }
+
+    /**
+     * 
+     * @returns an array of the light objects in the environment
+     */
+    public getLights(): Array<Light> {
+        return this.lights.slice();
+    }
+
+    public render(): HTMLCanvasElement {
+        if (this.mainCamera)
+            return this.mainCamera.render(this);
+        
+        return new HTMLCanvasElement();
     }
 }

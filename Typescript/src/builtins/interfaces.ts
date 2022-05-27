@@ -28,7 +28,7 @@ export interface Camera extends Entity {
      * 
      * @param env the environment the camera is in
      */
-    render(env: Environment): Canvas;
+    render(env: Environment): HTMLCanvasElement;
 }
 
 export interface Light extends Entity {
