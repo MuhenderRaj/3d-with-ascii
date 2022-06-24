@@ -14,6 +14,12 @@ export interface Shape extends Entity {
     vertices: Array<readonly [number, number, number]>;
     triangles: Array<readonly [number, number, number]>;
     normals: Array<Vector3>;
+
+    /**
+     * The absolute coordinates of the vertices of the triangle in 
+     * world space
+     */
+    triangleCoords: Array<readonly [Vector3, Vector3, Vector3]>;
 }
 
 export interface Camera extends Entity {
@@ -24,11 +30,9 @@ export interface Camera extends Entity {
     depth: number;
 
     /**
-     * Returns a canvas of the rendered view
-     * 
-     * @param env the environment the camera is in
+     * Modifies the canvas with the rendered view
      */
-    render(env: Environment): HTMLCanvasElement;
+    render(env: Environment): void;
 }
 
 export interface Light extends Entity {

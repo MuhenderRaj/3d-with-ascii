@@ -18,14 +18,12 @@ function main(): void {
         256,
         1,
         false,
-        1
+        1,
+        ['.', ',', ';', 'o', '0', '#', '@']
     ));
     
     setInterval(() => {
-        const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-        const ctx = canvas.getContext('2d');
-        const img = env.render();
-        ctx?.drawImage(img, img.width, img.height);
+        env.render();
         console.log("Cool");
     }, 1000);
 

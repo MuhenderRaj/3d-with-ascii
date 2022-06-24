@@ -10,15 +10,23 @@ export class Environment {
     private readonly cameras: Array<Camera> = [];
     private readonly lights: Array<Light> = [];
 
+    private readonly canvas: HTMLCanvasElement;
+
     private mainCamera: Camera | undefined;
 
-    private constructor() { }
+    private constructor() { 
+        this.canvas = <HTMLCanvasElement>document.getElementById('canvas');
+    }
 
     public static getEnvironment(): Environment {
         if (Environment.environment === undefined)
             Environment.environment = new Environment();
         
         return Environment.environment;
+    }
+
+    public getCanvas(): HTMLCanvasElement {
+        return this.canvas;
     }
 
     /**
@@ -79,10 +87,7 @@ export class Environment {
         return this.lights.slice();
     }
 
-    public render(): HTMLCanvasElement {
-        if (this.mainCamera)
-            return this.mainCamera.render(this);
-        
-        return new HTMLCanvasElement();
+    public render(): void {
+        this.mainCamera?.render(this);
     }
 }

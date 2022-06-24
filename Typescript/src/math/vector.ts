@@ -1,3 +1,5 @@
+import { Quaternion } from "./quaternion";
+
 /**
  * A class representing an immutable 3-dimensional vector.
  */
@@ -141,6 +143,20 @@ export class Vector3 {
         return new Vector3(-this.x, -this.y, -this.z);
     }
 
+    /// QUATERNION OPERATIONS ///
+
+    /**
+     * 
+     * @param quaternion the half-angle quaternion to rotate the vector by
+     * @returns A new vector that is the rotated version of the original vector
+     */
+    public rotate(quaternion: Quaternion): Vector3 {
+        return quaternion
+            .multiply(new Quaternion(0, this))
+            .multiply(quaternion.inverse())
+            .vec;
+    }
+
     /// VECTOR REPRESENTATION ///
 
     /**
@@ -148,6 +164,10 @@ export class Vector3 {
      */
     public toString(): string {
         return `Vector3(${this.x}, ${this.y}, ${this.z})`;
+    }
+
+    public static fromArray(array: readonly [number, number, number]): Vector3 {
+        return new Vector3(array[0], array[1], array[2]);
     }
 
     /**
