@@ -4,7 +4,9 @@ import { Vector3 } from './vector';
  * A class representing an immutable quaternion object.
  */
 export class Quaternion {
-    public static readonly identity: Quaternion = new Quaternion(1, Vector3.zero);
+    public static get identity(): Quaternion {
+        return new Quaternion(1, Vector3.zero);
+    }
 
     /// CREATORS ///
 
