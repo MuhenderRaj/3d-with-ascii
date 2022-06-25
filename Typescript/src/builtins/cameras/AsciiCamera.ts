@@ -54,6 +54,9 @@ export class AsciiCamera implements Camera {
         const zBuffer: ReadonlyArray<Array<number>> = new Array<number>(this.height)
             .map(row => new Array<number>(this.width).fill(Number.POSITIVE_INFINITY));
         
+        const screen: ReadonlyArray<Array<string>> = new Array<string>(this.height)
+            .map(row => new Array<string>(this.width).fill(this.intensities[0]));
+        
         const canvas = env.getCanvas();
         
         const viewingNormal = this.viewingNormal;
@@ -78,13 +81,20 @@ export class AsciiCamera implements Camera {
                     triangle,
                     normal,
                     zBuffer,
-                    canvas
+                    screen
                 );
-                
             }
-
-
         }
+
+        this.drawOnCanvas(canvas, screen);
+    }
+
+    private drawOnCanvas(canvas: HTMLCanvasElement, screen: ReadonlyArray<Array<string>>): void {
+        const text = screen.map(row => row.reduce((acc, val) => acc + val, ""))
+            .reduce((acc, val) => acc + val + '\n', "")
+            .trimEnd();
+        
+        canvas.getContext('2d')?.fillText(text, 0, 0);
     }
 
     private renderTriangle(
@@ -92,11 +102,54 @@ export class AsciiCamera implements Camera {
         triangle: readonly [Vector3, Vector3, Vector3],
         triangleNormal: Vector3,
         zBuffer: ReadonlyArray<Array<number>>,
-        canvas: HTMLCanvasElement): void {
+        screen: ReadonlyArray<Array<string>>): void {
 
         const triangle2D = triangle.map(vertex => {
             return this.worldSpaceToScreenSpace(vertex);
         });
+
+        const rectBounds = {
+            minX: Math.min(...triangle2D.map(value => value[0])),
+            minY: Math.min(...triangle2D.map(value => value[1])),
+            maxX: Math.max(...triangle2D.map(value => value[0])),
+            maxY: Math.max(...triangle2D.map(value => value[1])),
+        };
+
+        const depthNormal = this.viewingNormal.direction.multiplyByScalar(this.depth);
+    
+        for (let y = rectBounds.minY; y <= rectBounds.maxY; y++) {
+            for (let x = rectBounds.minX; y <= rectBounds.maxX; x++) {
+                if (!this.isInBounds([x, y])) continue;
+
+                const vertexDistances = triangle2D.map(vertex => [x - vertex[0], y - vertex[1]]);
+
+                const abChirality = vertexDistances[0][0] * vertexDistances[1][1]
+                    - vertexDistances[1][0] * vertexDistances[0][1];
+                const bcChirality = vertexDistances[1][0] * vertexDistances[2][1]
+                    - vertexDistances[2][0] * vertexDistances[1][1];
+                const caChirality = vertexDistances[2][0] * vertexDistances[0][1]
+                    - vertexDistances[0][0] * vertexDistances[2][1];
+                
+                if (abChirality <= 0 && bcChirality <= 0 && caChirality <= 0
+                    || abChirality >= 0 && bcChirality >= 0 && caChirality >= 0) {
+                        
+                    const u = x - this.width / 2;
+                    const v = this.height / 2 - y;
+
+                    const pointPointer = this.horizontal.multiplyByScalar(u)
+                        .add(this.vertical.multiplyByScalar(v))
+                        .add(depthNormal);
+                    
+                    const pointDistance = triangle[0].subtract(this.position).dotProduct(triangleNormal)
+                        / pointPointer.direction.dotProduct(triangleNormal);
+                    
+                    if (pointDistance < zBuffer[y][x]) {
+                        screen[y][x] = character;
+                        zBuffer[y][x] = pointDistance;
+                    }
+                }
+            }
+        }
     }
 
     private worldSpaceToScreenSpace(point: Vector3): [number, number] {
