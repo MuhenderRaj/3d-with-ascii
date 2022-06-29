@@ -1,10 +1,24 @@
 # 3D ASCII model
 
-![Utah Teapot rendered in ASCII](./teapot.jpg)
+![Spinning Among Us crewmate in ASCII](./spinning_amogus.gif)
 
 # Instructions for setting up
 
 First clone the repository by `git clone https://github.com/MuhenderRaj/3d-with-ascii.git`.
+
+## Typescript version
+
+Open the Typescript folder by `cd Typescript`.
+
+Run `npm run watchify-client` to start the client auto-compilation.
+
+Run `npm run start-server` to start the server.
+
+Navigate to `localhost:3000` on a browser to see the result.
+
+## Python version 
+
+Open the Python folder by `cd Python`.
 
 Then, run `main.py` for a sample program.
 

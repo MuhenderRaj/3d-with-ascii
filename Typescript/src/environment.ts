@@ -1,4 +1,4 @@
-import { Shape, Camera, Light, Entity } from './builtins/interfaces';
+import { Shape, Camera, Light, Entity, PixelType } from './builtins/interfaces';
 
 /**
  * Singleton class representing the environment
@@ -7,12 +7,12 @@ export class Environment {
     private static environment: Environment | undefined;
 
     private readonly shapes: Array<Shape> = [];
-    private readonly cameras: Array<Camera> = [];
+    private readonly cameras: Array<Camera<PixelType>> = [];
     private readonly lights: Array<Light> = [];
 
     private readonly canvas: HTMLCanvasElement;
 
-    private mainCamera: Camera | undefined;
+    private mainCamera: Camera<PixelType> | undefined;
 
     private constructor() { 
         this.canvas = <HTMLCanvasElement>document.getElementById('canvas');
@@ -44,7 +44,7 @@ export class Environment {
      * 
      * @param camera the camera to be added
      */
-    public addCamera(camera: Camera): void {
+    public addCamera(camera: Camera<PixelType>): void {
         this.cameras.push(camera);
         if (this.mainCamera === undefined) {
             this.mainCamera = camera;

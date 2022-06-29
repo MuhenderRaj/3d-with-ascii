@@ -11,34 +11,38 @@ async function main(): Promise<void> {
     const env = Environment.getEnvironment();
 
     env.addCamera(new AsciiCamera(
-        new Vector3(0, 40, 30),
-        Quaternion.fromEuler(Math.PI / 6, Math.PI, 0),
-        new Vector3(1, 1, 1),
+        {
+            position: new Vector3(0, 70, 60),
+            rotation: Quaternion.fromEuler(Math.PI / 6, Math.PI, 0),
+            scaling: new Vector3(1, 1, 1)
+        },
         false,
-        70,
-        50,
-        1,
-        false,
+        140,
         100,
-        ['.', ',', ';', '0', '#', '@']
+        1,
+        true,
+        100,
+        ['.', ',', ';', '0', '@']
     ));
 
     // Quaternion.fromAxisAngle(new Vector3(0, 1, 0), Math.PI),
 
     env.addShape(await PolyShape.fromObj(
         "among us",
-        new Vector3(0, 0, 0),
-        Quaternion.identity,
-        new Vector3(0.3, 0.3, 0.3),
+        {
+            position: new Vector3(0, 0, 0),
+            rotation: Quaternion.identity.multiply(Quaternion.fromEuler(0, Math.PI / 4, 0)),
+            scaling: new Vector3(0.3, 0.3, 0.3)
+        },
         false
     ));
     
     setInterval(() => {
         env.render();
-        // const pos = env.getShapes()[0].position;
-        // env.getShapes()[0].position = pos.add(Vector3.forward.multiplyByScalar(1));
+        const rot = env.getShapes()[0].transform.rotation;
+        env.getShapes()[0].transform.rotation = rot.multiply(Quaternion.fromEuler(0, 0.1, 0));
         console.log("Cool");
-    }, 1000);
+    }, 100);
 
     console.log("Cool");
 }
