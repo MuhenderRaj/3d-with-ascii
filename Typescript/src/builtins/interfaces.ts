@@ -12,6 +12,7 @@ export interface Transform {
 }
 
 export interface Entity {
+    name: string
     transform: Transform;
     hidden: boolean;
 
@@ -32,7 +33,7 @@ export interface Shape extends Entity {
      * @param screen the array which is mutated by the rendering of this shape
      * @param zBuffer the buffer of already existing pixel distances from the camera
      */
-    renderShape(camera: Camera<PixelType>, screen: readonly PixelType[][], zBuffer: readonly number[][]): void;
+    renderShape(camera: Camera<PixelType>, screen: readonly number[][], zBuffer: readonly number[][]): void;
 }
 
 

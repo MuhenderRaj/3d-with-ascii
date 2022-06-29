@@ -24,11 +24,12 @@ class AppServer {
     }
     async initEndpoints() {
         // Endpoints:
+        this.app.use(express_1.default.static('public'));
         // GET /
         this.app.get("/", (request, response) => {
             response.status(200)
                 .type("text/html")
-                .sendFile(__dirname + '/index.html');
+                .sendFile(__dirname + '/public/index.html');
         });
         this.app.get("/shapes/:shapeName.obj", (request, response) => {
             response.sendFile(__dirname + `/shapes/${request.params.shapeName}.obj`);

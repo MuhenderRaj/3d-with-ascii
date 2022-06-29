@@ -87,6 +87,13 @@ export class Environment {
         return this.lights.slice();
     }
 
+    public getMainCamera(): Camera<PixelType> {
+        if (!this.mainCamera)
+            throw new Error("No main camera found");
+        
+        return this.mainCamera;
+    }
+
     public render(): void {
         this.mainCamera?.render(this);
     }

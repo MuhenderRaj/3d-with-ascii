@@ -26,6 +26,7 @@ export class AsciiCamera implements Camera<string> {
     }
 
     public constructor(
+        public name: string,
         public transform: Transform,
         public hidden: boolean,
         public width: number,
@@ -33,19 +34,21 @@ export class AsciiCamera implements Camera<string> {
         public zoom: number,
         public perspective: boolean,
         public depth: number,
-        public intensities: ReadonlyArray<string>) {
+        public intensities: ReadonlyArray<string>,
+        public antialiasing: number = 1) {
 
     }
 
+    private prevScreen: string[][] | undefined;
 
     public render(env: Environment): void {
         // this.clearBuffer();
+        const screen: Array<Array<number>> = [];
         const zBuffer: Array<Array<number>> = [];
-        const screen: Array<Array<string>> = [];
 
-        for (let i = 0; i < this.height; i++) {
-            const zRow = new Array<number>(this.width).fill(Number.POSITIVE_INFINITY);
-            const screenRow = new Array<string>(this.width).fill(' ');
+        for (let i = 0; i < this.height * this.antialiasing; i++) {
+            const zRow = new Array<number>(this.width * this.antialiasing).fill(Number.POSITIVE_INFINITY);
+            const screenRow = new Array<number>(this.width * this.antialiasing).fill(0);
             zBuffer.push(zRow);
             screen.push(screenRow);
         }
@@ -61,23 +64,60 @@ export class AsciiCamera implements Camera<string> {
         this.drawOnCanvas(canvas, screen);
     }
 
-    private drawOnCanvas(canvas: HTMLCanvasElement, screen: ReadonlyArray<Array<string>>): void {
-        const text = screen.map(row => row.reduce((acc, val) => acc + val, ""))
+    private drawOnCanvas(canvas: HTMLCanvasElement, screen: ReadonlyArray<Array<number>>): void {
         const ctx = canvas.getContext('2d');
         if (ctx === null)
-            return;
+            throw new Error("impossible");
         
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (this.prevScreen === undefined) {
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
 
         ctx.font = "10px monospace";
-        const width = ctx.measureText(text[0]).width;
+        const measures = ctx.measureText(";");
 
-        for (let i = 0; i < text.length; i++) {
-            ctx.fillStyle = "black";
-            ctx.fillRect(0, 7 * i - 2, width, 7);
-            ctx.fillStyle = "white";
-            ctx.fillText(text[i], 0, 5 + 7 * i);
+        const currChars: string[][] = [];
+
+        for (let y = 0; y < this.height; y++) {
+            const currRow: string[] = [];
+            for (let x = 0; x < this.width; x++) {
+                let averageIntensity = 0;
+                for (let i = 0; i < this.antialiasing; i++) {
+                    for (let j = 0; j < this.antialiasing; j++) {
+                        averageIntensity += screen[y * this.antialiasing + j][x * this.antialiasing + i];
+                    }
+                }
+                averageIntensity /= this.antialiasing ** 2;
+                
+                const char = (averageIntensity === 0)? ' ': this.intensityFunction(averageIntensity);
+
+                currRow.push(char);
+
+                // console.log(y)
+                if (this.prevScreen !== undefined && this.prevScreen[y][x] === char) {
+                    continue;
+                }
+
+                // const canvas = document.createElement('canvas');
+                // const canvasCtx = canvas.getContext('2d');
+                // canvasCtx.
+
+                const height = (measures.fontBoundingBoxAscent + measures.fontBoundingBoxDescent);
+
+                const padding = 1.4;
+                const xTension = 0.5;
+
+                // ctx.fillStyle = ((x+y)%2===0)? "black": "red";
+                ctx.fillStyle = "black";
+                ctx.fillRect((measures.width * padding) * x - xTension, height * y, (measures.width*padding) + 2*xTension, height+0.1);
+                ctx.fillStyle = "white";
+                ctx.fillText(char, (measures.width * padding) * x, height * (y+1) - 3);
+            }
+            currChars.push(currRow);
         }
+
+        this.prevScreen = currChars;
     }
 
 
@@ -127,7 +167,7 @@ export class AsciiCamera implements Camera<string> {
 
     public isInBounds(point: readonly [number, number]): boolean {
         const [x, y] = point;
-        return 0 <= x && x < this.width && 0 <= y && y < this.height;
+        return 0 <= x && x < this.width * this.antialiasing && 0 <= y && y < this.height * this.antialiasing;
     }
 
     public intensityFunction(t: number): string {

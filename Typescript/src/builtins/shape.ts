@@ -36,7 +36,7 @@ export class PolyShape implements Shape {
         return returnValue;
     }
 
-    public renderShape(camera: Camera<PixelType>, screen: readonly PixelType[][], zBuffer: readonly number[][]): void {
+    public renderShape(camera: Camera<PixelType>, screen: readonly number[][], zBuffer: readonly number[][]): void {
         for (const [triangle, normal] of zip(this.triangleCoords, this.normals)) {
             const cosViewingNormal = -normal.dotProduct(camera.viewingNormal.direction);
             
@@ -48,19 +48,75 @@ export class PolyShape implements Shape {
             // Face is facing away
             if (cosViewingNormal <= 0) continue;
 
-            renderTriangle(
-                camera.intensityFunction(cosViewingNormal),
+            PolyShape.renderTriangle(
+                cosViewingNormal,
                 triangle,
                 normal,
                 zBuffer,
                 screen,
-                camera
+                camera,
             );
         }
     }
 
+    private static renderTriangle(
+        pixelIntensity: number,
+        triangle: readonly [Vector3, Vector3, Vector3],
+        triangleNormal: Vector3,
+        zBuffer: ReadonlyArray<Array<number>>,
+        screen: ReadonlyArray<Array<number>>,
+        camera: Camera<PixelType>): void {
+        
+        const triangle2D = triangle.map(vertex => camera.worldSpaceToScreenSpace(vertex));
+
+        const rectBounds = {
+            minX: Math.min(...triangle2D.map(value => value[0])),
+            minY: Math.min(...triangle2D.map(value => value[1])),
+            maxX: Math.max(...triangle2D.map(value => value[0])),
+            maxY: Math.max(...triangle2D.map(value => value[1])),
+        };
+
+        const depthNormal = camera.viewingNormal.direction.multiplyByScalar(camera.depth);
+
+        for (let y = rectBounds.minY; y <= rectBounds.maxY; y++) {
+            for (let x = rectBounds.minX; x <= rectBounds.maxX; x++) {
+                if (!camera.isInBounds([x, y])) continue;
+
+                const vertexDistances = triangle2D.map(vertex => [x - vertex[0], y - vertex[1]]);
+
+                const abChirality = vertexDistances[0][0] * vertexDistances[1][1]
+                    - vertexDistances[1][0] * vertexDistances[0][1];
+                const bcChirality = vertexDistances[1][0] * vertexDistances[2][1]
+                    - vertexDistances[2][0] * vertexDistances[1][1];
+                const caChirality = vertexDistances[2][0] * vertexDistances[0][1]
+                    - vertexDistances[0][0] * vertexDistances[2][1];
+                
+                if (abChirality <= 0 && bcChirality <= 0 && caChirality <= 0
+                    || abChirality >= 0 && bcChirality >= 0 && caChirality >= 0) {
+                    
+                    const u = Math.round(x - camera.width / 2);
+                    const v = Math.round(camera.height / 2 - y);
+                    
+                    const pointPointer = camera.horizontal.multiplyByScalar(u)
+                        .add(camera.vertical.multiplyByScalar(v))
+                        .add(depthNormal);
+                    
+                    const pointDistance = triangle[0].subtract(camera.transform.position).dotProduct(triangleNormal)
+                        / pointPointer.direction.dotProduct(triangleNormal);
+                    
+                    if (pointDistance < zBuffer[y][x]) {
+                        screen[y][x] = pixelIntensity;
+                        zBuffer[y][x] = pointDistance;
+                    }
+                }
+            }
+        }
+    }
+
+    // Creators
 
     public constructor(
+        public name: string,
         public transform: Transform,
         public hidden: boolean,
         public vertices: Array<readonly [number, number, number]>,
@@ -71,6 +127,7 @@ export class PolyShape implements Shape {
 
     public static async fromObj(
         filename: string,
+        name: string,
         transform: Transform,
         hidden: boolean
     ): Promise<PolyShape> {
@@ -113,60 +170,7 @@ export class PolyShape implements Shape {
             }
         }
 
-        return new PolyShape(transform, hidden, vertices, triangles);
+        return new PolyShape(name, transform, hidden, vertices, triangles);
     }
 }
 
-function renderTriangle(
-    pixel: PixelType,
-    triangle: readonly [Vector3, Vector3, Vector3],
-    triangleNormal: Vector3,
-    zBuffer: ReadonlyArray<Array<number>>,
-    screen: ReadonlyArray<Array<PixelType>>,
-    camera: Camera<PixelType>): void {
-    
-    const triangle2D = triangle.map(vertex => camera.worldSpaceToScreenSpace(vertex));
-
-    const rectBounds = {
-        minX: Math.min(...triangle2D.map(value => value[0])),
-        minY: Math.min(...triangle2D.map(value => value[1])),
-        maxX: Math.max(...triangle2D.map(value => value[0])),
-        maxY: Math.max(...triangle2D.map(value => value[1])),
-    };
-
-    const depthNormal = camera.viewingNormal.direction.multiplyByScalar(camera.depth);
-
-    for (let y = rectBounds.minY; y <= rectBounds.maxY; y++) {
-        for (let x = rectBounds.minX; x <= rectBounds.maxX; x++) {
-            if (!camera.isInBounds([x, y])) continue;
-
-            const vertexDistances = triangle2D.map(vertex => [x - vertex[0], y - vertex[1]]);
-
-            const abChirality = vertexDistances[0][0] * vertexDistances[1][1]
-                - vertexDistances[1][0] * vertexDistances[0][1];
-            const bcChirality = vertexDistances[1][0] * vertexDistances[2][1]
-                - vertexDistances[2][0] * vertexDistances[1][1];
-            const caChirality = vertexDistances[2][0] * vertexDistances[0][1]
-                - vertexDistances[0][0] * vertexDistances[2][1];
-            
-            if (abChirality <= 0 && bcChirality <= 0 && caChirality <= 0
-                || abChirality >= 0 && bcChirality >= 0 && caChirality >= 0) {
-                
-                const u = Math.round(x - camera.width / 2);
-                const v = Math.round(camera.height / 2 - y);
-                
-                const pointPointer = camera.horizontal.multiplyByScalar(u)
-                    .add(camera.vertical.multiplyByScalar(v))
-                    .add(depthNormal);
-                
-                const pointDistance = triangle[0].subtract(camera.transform.position).dotProduct(triangleNormal)
-                    / pointPointer.direction.dotProduct(triangleNormal);
-                
-                if (pointDistance < zBuffer[y][x]) {
-                    screen[y][x] = pixel;
-                    zBuffer[y][x] = pointDistance;
-                }
-            }
-        }
-    }
-}
