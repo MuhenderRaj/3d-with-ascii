@@ -48,6 +48,10 @@ export interface Camera<PixelType> extends Entity {
     horizontal: Vector3;
     vertical: Vector3;
 
+    // pointOfFocus: Vector3;
+
+    antialiasing: number;
+
     /**
      * 
      * @param point the point in world space coordinates

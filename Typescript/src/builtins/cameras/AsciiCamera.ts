@@ -25,6 +25,10 @@ export class AsciiCamera implements Camera<string> {
         return Vector3.up.rotate(this.transform.rotation);
     }
 
+    // public get pointOfFocus(): Vector3 {
+    //     return this.transform.position.add(this.viewingNormal.multiplyByScalar(60));
+    // }
+
     public constructor(
         public name: string,
         public transform: Transform,
@@ -161,7 +165,7 @@ export class AsciiCamera implements Camera<string> {
         }
 
 
-        return [Math.round(this.width / 2 + this.zoom * u), Math.round(this.height / 2 - this.zoom * v)];
+        return [Math.round(this.width * this.antialiasing / 2 + this.zoom * u), Math.round(this.height * this.antialiasing / 2 - this.zoom * v)];
     }
 
 

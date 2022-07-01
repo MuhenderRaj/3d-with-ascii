@@ -94,8 +94,8 @@ export class PolyShape implements Shape {
                 if (abChirality <= 0 && bcChirality <= 0 && caChirality <= 0
                     || abChirality >= 0 && bcChirality >= 0 && caChirality >= 0) {
                     
-                    const u = Math.round(x - camera.width / 2);
-                    const v = Math.round(camera.height / 2 - y);
+                    const u = Math.round(x - camera.width * camera.antialiasing / 2);
+                    const v = Math.round(camera.height * camera.antialiasing / 2 - y);
                     
                     const pointPointer = camera.horizontal.multiplyByScalar(u)
                         .add(camera.vertical.multiplyByScalar(v))

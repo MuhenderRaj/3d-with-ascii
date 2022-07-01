@@ -48,7 +48,7 @@ export class Quaternion {
         const realPart = Math.cos(angle / 2);
         const vectorMagnitude = Math.abs(Math.sin(angle / 2));
 
-        const vectorPart = axis.direction.multiplyByScalar(vectorMagnitude);
+        const vectorPart = axis.direction.multiplyByScalar(vectorMagnitude*Math.sign(angle));
 
         return new Quaternion(realPart, vectorPart);
     }

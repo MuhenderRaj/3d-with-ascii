@@ -47,6 +47,7 @@ class AppServer {
     start() {
         this.server.listen(this.port);
         console.log(`Server running on port ${this.port}`);
+        console.log(`Navigate to http://localhost:${this.port}`);
     }
     /**
      * Stop the server
